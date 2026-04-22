@@ -297,7 +297,7 @@ class _TerziAppState extends State<TerziApp> {
     final testCount = min(10, _totalToScan);
     final allAssets = await _selectedAlbum!.getAssetListRange(start: 0, end: _maxPhotos);
     final assetsToScan = _fromDate == null
-       ? allAssets
+     ? allAssets
         : allAssets.where((a) => a.createDateTime.isAfter(_fromDate!)).toList();
 
     final testAssets = assetsToScan.take(testCount).toList();
@@ -391,7 +391,7 @@ class _TerziAppState extends State<TerziApp> {
 
     final allAssets = await _selectedAlbum!.getAssetListRange(start: 0, end: _maxPhotos);
     final assetsToScan = _fromDate == null
-       ? allAssets
+     ? allAssets
         : allAssets.where((a) => a.createDateTime.isAfter(_fromDate!)).toList();
 
     FaceDetector? faceDetector;
@@ -842,7 +842,7 @@ class _TerziAppState extends State<TerziApp> {
                             onPressed: _busy? null : _pickDate,
                             icon: const Icon(Icons.calendar_today, size: 18),
                             label: Text(_fromDate == null
-                               ? 'Da: Tutte le date'
+                             ? 'Da: Tutte le date'
                                 : 'Da: ${_fromDate!.day}/${_fromDate!.month}/${_fromDate!.year}'),
                           ),
                         ),
@@ -928,7 +928,7 @@ class _TerziAppState extends State<TerziApp> {
                 SizedBox(
                   width: double.infinity,
                   child: _loading
-                     ? ElevatedButton.icon(
+                   ? ElevatedButton.icon(
                           onPressed: _stopScan,
                           style: ElevatedButton.styleFrom(backgroundColor: Colors.red[700], foregroundColor: Colors.white),
                           icon: const Icon(Icons.stop),
@@ -946,7 +946,7 @@ class _TerziAppState extends State<TerziApp> {
                   child: OutlinedButton.icon(
                     onPressed: _busy || _testing || _totalToScan == 0? null : _runTestScan,
                     icon: _testing
-                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.timer),
                     label: Text(_testing? 'Test in corso...' : 'Testa 10 foto'),
                   ),
@@ -966,4 +966,248 @@ class _TerziAppState extends State<TerziApp> {
                       style: TextStyle(fontSize: 13, color: Colors.blue[900]),
                     ),
                   ),
-                const SizedBox(height
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _busy || _matchingPhotos.isEmpty? null : _exportToAlbum,
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green[700], foregroundColor: Colors.white           
+                        icon: _exporting? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.create_new_folder),
+                        label: const Text('Esporta'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _busy || _matchingPhotos.isEmpty || _checkingDiff? null : _syncAlbum,
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[700], foregroundColor: Colors.white),
+                        icon: _syncing || _checkingDiff? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.sync),
+                        label: Text(_checkingDiff? 'Controllo...' : 'Sincronizza'),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_toAdd > 0 || _toRemove > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Diff: +$_toAdd da aggiungere, -$_toRemove da rimuovere',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'Trovate: ${_matchingPhotos.length} foto • Salvate automaticamente',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(2),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 2,
+                mainAxisSpacing: 2,
+              ),
+              itemCount: _matchingPhotos.length,
+              itemBuilder: (context, index) {
+                final asset = _matchingPhotos[index];
+                return GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FullScreenPhotoViewer(
+                        asset: asset,
+                        tolerance: _tolerance,
+                        subjectType: _subjectType,
+                      ),
+                    ),
+                  ),
+                  child: FutureBuilder<Uint8List?>(
+                    future: asset.thumbnailDataWithSize(const ThumbnailSize(300, 300)),
+                    builder: (_, snapshot) {
+                      if (snapshot.hasData) {
+                        return Image.memory(snapshot.data!, fit: BoxFit.cover);
+                      }
+                      return Container(color: Colors.grey[300]);
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class FullScreenPhotoViewer extends StatelessWidget {
+  final AssetEntity asset;
+  final double tolerance;
+  final SubjectType subjectType;
+
+  const FullScreenPhotoViewer({
+    super.key,
+    required this.asset,
+    required this.tolerance,
+    required this.subjectType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('${subjectType.label} • Tolleranza ${(tolerance * 100).round()}%'),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+      ),
+      backgroundColor: Colors.black,
+      body: Center(
+        child: FutureBuilder<File?>(
+          future: asset.file,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const CircularProgressIndicator();
+            }
+            return FutureBuilder<Widget>(
+              future: _buildImageWithGrid(snapshot.data!),
+              builder: (context, snap) {
+                if (snap.hasData) return snap.data!;
+                return const CircularProgressIndicator();
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<Widget> _buildImageWithGrid(File file) async {
+    final bytes = await file.readAsBytes();
+    final image = img.decodeImage(bytes);
+    if (image == null) return Container();
+
+    final w = image.width.toDouble();
+    final h = image.height.toDouble();
+    final inputImage = InputImage.fromFile(file);
+
+    Rect? subjectRect;
+
+    if (subjectType == SubjectType.face) {
+      final faceDetector = FaceDetector(options: FaceDetectorOptions());
+      final faces = await faceDetector.processImage(inputImage);
+      if (faces.isNotEmpty) subjectRect = faces.first.boundingBox;
+      await faceDetector.close();
+    } else {
+      final objectDetector = ObjectDetector(
+        options: ObjectDetectorOptions(
+          mode: DetectionMode.single,
+          classifyObjects: true,
+          multipleObjects: false,
+        ),
+      );
+      final objects = await objectDetector.processImage(inputImage);
+      for (final obj in objects) {
+        final labels = obj.labels.map((e) => e.text.toLowerCase()).toList();
+        bool match = false;
+        if (subjectType == SubjectType.any && labels.isNotEmpty) match = true;
+        if (subjectType == SubjectType.flower && labels.any((l) => l.contains('flower') || l.contains('plant'))) match = true;
+        if (subjectType == SubjectType.animal && labels.any((l) => l.contains('animal') || l.contains('cat') || l.contains('dog') || l.contains('bird'))) match = true;
+        if (subjectType == SubjectType.plant && labels.any((l) => l.contains('plant'))) match = true;
+        if (subjectType == SubjectType.food && labels.any((l) => l.contains('food'))) match = true;
+        if (subjectType == SubjectType.vehicle && labels.any((l) => l.contains('car') || l.contains('vehicle'))) match = true;
+        if (match) {
+          subjectRect = obj.boundingBox;
+          break;
+        }
+      }
+      await objectDetector.close();
+    }
+
+    return InteractiveViewer(
+      child: CustomPaint(
+        painter: ThirdsGridPainter(
+          image: image,
+          tolerance: tolerance,
+          subjectRect: subjectRect,
+        ),
+        child: Image.file(file),
+      ),
+    );
+  }
+}
+
+class ThirdsGridPainter extends CustomPainter {
+  final img.Image image;
+  final double tolerance;
+  final Rect? subjectRect;
+
+  ThirdsGridPainter({
+    required this.image,
+    required this.tolerance,
+    this.subjectRect,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+     ..color = Colors.white.withOpacity(0.5)
+     ..strokeWidth = 2;
+
+    final w = size.width;
+    final h = size.height;
+
+    canvas.drawLine(Offset(w / 3, 0), Offset(w / 3, h), paint);
+    canvas.drawLine(Offset(2 * w / 3, 0), Offset(2 * w / 3, h), paint);
+    canvas.drawLine(Offset(0, h / 3), Offset(w, h / 3), paint);
+    canvas.drawLine(Offset(0, 2 * h / 3), Offset(w, 2 * h / 3), paint);
+
+    final circlePaint = Paint()
+     ..color = Colors.yellow.withOpacity(0.8)
+     ..style = PaintingStyle.stroke
+     ..strokeWidth = 3;
+
+    final radius = max(w, h) * tolerance;
+    final points = [
+      Offset(w / 3, h / 3),
+      Offset(2 * w / 3, h / 3),
+      Offset(w / 3, 2 * h / 3),
+      Offset(2 * w / 3, 2 * h / 3),
+    ];
+
+    for (final p in points) {
+      canvas.drawCircle(p, radius, circlePaint);
+    }
+
+    if (subjectRect!= null) {
+      final boxPaint = Paint()
+       ..color = Colors.cyan.withOpacity(0.8)
+       ..style = PaintingStyle.stroke
+       ..strokeWidth = 3;
+
+      final scaleX = w / image.width;
+      final scaleY = h / image.height;
+      final scaledRect = Rect.fromLTRB(
+        subjectRect!.left * scaleX,
+        subjectRect!.top * scaleY,
+        subjectRect!.right * scaleX,
+        subjectRect!.bottom * scaleY,
+      );
+      canvas.drawRect(scaledRect, boxPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant ThirdsGridPainter oldDelegate) {
+    return oldDelegate.tolerance!= tolerance || oldDelegate.subjectRect!= subjectRect;
+  }
+}
+                                                        
