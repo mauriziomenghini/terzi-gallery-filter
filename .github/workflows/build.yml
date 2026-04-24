@@ -19,7 +19,10 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
-
+        
+      - name: Install Android dependencies
+        run: cd android && flutter pub get && cd ..
+        
       - name: Build APK
         run: flutter build apk --release
 
