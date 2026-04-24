@@ -17,4 +17,4 @@ plugins {
 
 include ":app"
 
-setProjectDir(":app", file("app"))
+project(":app").projectDir = file("app")
